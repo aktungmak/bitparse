@@ -6,7 +6,7 @@ This is a small utility that defines a simple language which corresponds almost 
 The aim is to make it simple to quickly generate a parser that can read a blob of binary data and interpret it as specified, displaying the result in a human-readable format. I have tried to keep the syntax of the mini-language as close as possible to the common specification format so that it is easy to copy-and-paste straight from the spec.
 
 Here is an example of the mini-language which defines the multiple_operation_message structure from ANSI SCTE 104:
-
+```
 multiple_operation_message {
     Reserved                16 uimsbf
     messageSize             16 uimsbf
@@ -23,7 +23,7 @@ multiple_operation_message {
         data       data_length stuff
     }
 }
-
+```
 This is an almost exact copy of the spec, with a few adjustments in the for-loop syntax. Note that the field names can be re-used once parsed, so the value of num_ops is used to specify the number of iterations of the for-loop.
 
 TODO add more examples to demo the IF-syntax, comparison operators etc, as well as demoing the nesting of structures.
