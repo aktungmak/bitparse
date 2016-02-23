@@ -1,6 +1,6 @@
 import ply.yacc as yacc
 import ply.lex as lex
-from astobjects import Field, Structure
+from astobjects import Field, ForLoop, IfBlock, Structure, Value
 from bitlex import BitLex
 
 class BitSyntaxException(Exception):
@@ -45,7 +45,7 @@ class BitParse(object):
         if p[1] is None:
             p[0] = []
         else:
-            self.structures[p[2].name] = p[2]
+            # self.structures[p[2].name] = p[2]
             p[0] = p[1]+[p[2]]
 
 
@@ -53,6 +53,7 @@ class BitParse(object):
     def p_structure(self, p):
         'structure : ID LCURLY new_scope fields RCURLY'
         p[0] = Structure(p[1], p[4])
+        # self.structures[p[2].name] = p[2]
 
     # a structure can contain zero or more fields
     def p_fields(self, p):
@@ -99,19 +100,39 @@ class BitParse(object):
             p[0] = [self.structures[p[1]]]
         except KeyError as e:
             raise BitSyntaxException('line %d: undeclared structure %s' % (p.lineno(1), p[1]))
+
     # add fields based on a condition
     def p_ifcond(self, p):
-        'ifcond : IF LPAREN expression RPAREN LCURLY fields RCURLY'
-        print "condition:", p[3], p.lineno(1)
-        if p[3]:
-            p[0] = p[6]
-        else:
-            p[0] = []
+        'ifcond : IF LPAREN comparison RPAREN LCURLY fields RCURLY'
+        p[0] = [IfBlock(p[3], p[6])]
 
     # repeat fields while for condition is true
     def p_forloop(self, p):
         'forloop : FOR LPAREN expression RPAREN LCURLY fields RCURLY'
-        p[0] = p[6] * p[3]
+        p[0] = [ForLoop(p[3], p[6])]
+
+    def p_comparison_binop(self, p):
+        '''comparison : expression EQUAL expression
+                      | expression UNEQUAL expression
+                      | expression MORE expression
+                      | expression LESS expression
+                      | expression MOREEQ expression
+                      | expression LESSEQ expression
+        '''
+        def ekel():
+            if type(p[1]) is list:
+                print "1:", p[1]
+            elif type(p[3]) is list:
+                print "3:", p[3]
+            else:
+                return p[1]() == p[3]()
+        if   p[2] == '==': p[0] = ekel
+        # if   p[2] == '==': p[0] = lambda: p[1]() == p[3]()
+        elif p[2] == '!=': p[0] = lambda: p[1]() != p[3]()
+        elif p[2] == '>' : p[0] = lambda: p[1]() >  p[3]()
+        elif p[2] == '<' : p[0] = lambda: p[1]() <  p[3]()
+        elif p[2] == '>=': p[0] = lambda: p[1]() >= p[3]()
+        elif p[2] == '<=': p[0] = lambda: p[1]() <= p[3]()
 
     # mathematical expression
     def p_expression_binop(self, p):
@@ -119,16 +140,11 @@ class BitParse(object):
                       | expression MINUS expression
                       | expression TIMES expression
                       | expression DIVIDE expression
-                      | expression EQUAL expression
-                      | expression UNEQUAL expression
         '''
-        print map(str, p)
-        if   p[2] == '+' : p[0] = p[1] +  p[3]
-        elif p[2] == '-' : p[0] = p[1] -  p[3]
-        elif p[2] == '*' : p[0] = p[1] *  p[3]
-        elif p[2] == '/' : p[0] = p[1] /  p[3]
-        elif p[2] == '==': p[0] = p[1] == p[3]
-        elif p[2] == '!=': p[0] = p[1] != p[3]
+        if   p[2] == '+' : p[0] = lambda: p[1]() +  p[3]()
+        elif p[2] == '-' : p[0] = lambda: p[1]() -  p[3]()
+        elif p[2] == '*' : p[0] = lambda: p[1]() *  p[3]()
+        elif p[2] == '/' : p[0] = lambda: p[1]() /  p[3]()
 
     # grouping mathemetical expressions
     def p_expression_group(self, p):
@@ -137,20 +153,19 @@ class BitParse(object):
 
     def p_expression_number(self, p):
         'expression : NUMBER'
-        p[0] = p[1]
+        p[0] = Value(p[1])
 
     def p_expression_name(self, p):
         'expression : ID'
-        p[0] = self.current_scope[p[1]].value
+        p[0] = self.current_scope[p[1]]
 
     # Create a new scope for local variables
     def p_new_scope(self, p):
         'new_scope :'
-        return
-        print '== old scope ====='
-        for k, v in self.current_scope.iteritems():
-            print k, v
-        print 'making a new scope ======='
+        # print '== old scope ====='
+        # for k, v in self.current_scope.iteritems():
+        #     print k, v
+        # print 'making a new scope ======='
         self.current_scope = { }
 
     # empty ptoduction, for clarity
@@ -160,14 +175,14 @@ class BitParse(object):
 
     # Error rule for syntax errors
     def p_error(self, p):
-        print "Syntax error in input: ", p
+        print "Syntax error in input:", p
 
 
 ## end of parser ################################
 if __name__ == '__main__':
     bp = BitParse(debug=1)
-    with open('mom_sample.bit', 'r') as f:
+    with open('small.bit', 'r') as f:
         result = bp.parse(f.read())
-    print "here is the result: ", result
+    print "here is the result: ", map(str, result)
     print '== structures ====='
     print bp.structures

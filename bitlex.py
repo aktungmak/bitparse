@@ -14,7 +14,8 @@ class BitLex(object):
     }
 
     tokens = [
-        'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'EQUAL', 'UNEQUAL',
+        'PLUS', 'MINUS', 'TIMES', 'DIVIDE',
+        'EQUAL', 'UNEQUAL', 'LESS', 'MORE', 'LESSEQ', 'MOREEQ',
         'LCURLY', 'RCURLY', 'LPAREN', 'RPAREN',
         'ID', 'NUMBER',
         ] + reserved.values()
@@ -31,6 +32,10 @@ class BitLex(object):
     t_RPAREN  = r'\)'
     t_EQUAL   = r'=='
     t_UNEQUAL = r'!='
+    t_MORE    = r'>'
+    t_LESS    = r'<'
+    t_MOREEQ  = r'>='
+    t_LESSEQ  = r'<='
 
     def t_NUMBER_hex(self, t):
         r'0x[0-9A-Fa-f]+'
