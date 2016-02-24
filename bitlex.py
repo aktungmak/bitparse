@@ -67,6 +67,7 @@ class BitLex(object):
         t.type = self.reserved.get(t.value,'ID')
         return t
 
+
     # Ignored characters
     t_ignore = ' \t\v\r'
 

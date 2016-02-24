@@ -38,7 +38,6 @@ class IfBlock(object):
         self.condition = condition
         self.fields = fields
     def parse(self, bitstream):
-        # pdb.set_trace()
         if self.condition():
             return self.fields
         else:

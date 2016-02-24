@@ -16,13 +16,14 @@ class BitParse(object):
 
     def __init__(self, **kw):
         self.debug = kw.get('debug', 0)
+        self.scopestack = []
         self.current_scope = { }
         self.structures = { }
         try:
             modname = os.path.split(os.path.splitext(__file__)[0])[1] + "_" + self.__class__.__name__
         except:
             modname = "parser"+"_"+self.__class__.__name__
-        self.debugfile = modname + ".dbg"
+        # self.debugfile = modname + ".dbg"
         self.tabmodule = modname + "_" + "parsetab"
 
         # Build the lexer and parser
@@ -30,36 +31,40 @@ class BitParse(object):
         bl.build()
         yacc.yacc(module=self,
                   debug=self.debug,
-                  debugfile=self.debugfile,
+                  # debugfile=self.debugfile,
                   tabmodule=self.tabmodule)
 
     def parse(self, string):
         return yacc.parse(string)
 
     # a complete definition file, with zero or more structures
-    def p_structures(self, p):
+    def p_struct_list(self, p):
         '''
-        structures : empty
-                   | structures structure
+        struct_list : empty
+                    | struct struct_list
         '''
         if p[1] is None:
             p[0] = []
         else:
             # self.structures[p[2].name] = p[2]
-            p[0] = p[1]+[p[2]]
+            p[0] = [p[1]]+p[2]
 
+    def p_struct_name(self, p):
+        'struct_name : ID'
+        p[0] = p[1]
 
     # define a single structure
-    def p_structure(self, p):
-        'structure : ID LCURLY new_scope fields RCURLY'
-        p[0] = Structure(p[1], p[4])
-        # self.structures[p[2].name] = p[2]
+    def p_struct(self, p):
+        'struct : struct_name LCURLY new_scope fields end_scope RCURLY'
+        ns = Structure(p[1], p[4])
+        p[0] = ns
+        self.structures[ns.name] = ns
 
     # a structure can contain zero or more fields
     def p_fields(self, p):
         '''
         fields : empty
-               | fields field
+               | field fields
         '''
         if p[1] is None:
             p[0] = []
@@ -71,7 +76,7 @@ class BitParse(object):
         '''
         field : ID expression type
               | ALIGN
-              | structcall
+              | struct_call
               | ifcond
               | forloop
         '''
@@ -94,8 +99,8 @@ class BitParse(object):
         p[0] = p[1]
 
     # call a previous definition of a structure
-    def p_structcall(self, p):
-        'structcall : ID LPAREN RPAREN'
+    def p_struct_call(self, p):
+        'struct_call : struct_name LPAREN RPAREN'
         try:
             p[0] = [self.structures[p[1]]]
         except KeyError as e:
@@ -119,20 +124,18 @@ class BitParse(object):
                       | expression MOREEQ expression
                       | expression LESSEQ expression
         '''
-        def ekel():
-            if type(p[1]) is list:
-                print "1:", p[1]
-            elif type(p[3]) is list:
-                print "3:", p[3]
-            else:
-                return p[1]() == p[3]()
-        if   p[2] == '==': p[0] = ekel
-        # if   p[2] == '==': p[0] = lambda: p[1]() == p[3]()
-        elif p[2] == '!=': p[0] = lambda: p[1]() != p[3]()
-        elif p[2] == '>' : p[0] = lambda: p[1]() >  p[3]()
-        elif p[2] == '<' : p[0] = lambda: p[1]() <  p[3]()
-        elif p[2] == '>=': p[0] = lambda: p[1]() >= p[3]()
-        elif p[2] == '<=': p[0] = lambda: p[1]() <= p[3]()
+        # watch out! the lambdas don't close over the value
+        # of p[1] and p[3]!! so when they are called they
+        # get some bizarro results instead.
+        # so, we need to make our own local copies.
+        fst = p[1]
+        snd = p[3]
+        if   p[2] == '==': p[0] = lambda: fst() == snd()
+        elif p[2] == '!=': p[0] = lambda: fst() != snd()
+        elif p[2] == '>' : p[0] = lambda: fst() >  snd()
+        elif p[2] == '<' : p[0] = lambda: fst() <  snd()
+        elif p[2] == '>=': p[0] = lambda: fst() >= snd()
+        elif p[2] == '<=': p[0] = lambda: fst() <= snd()
 
     # mathematical expression
     def p_expression_binop(self, p):
@@ -146,15 +149,12 @@ class BitParse(object):
         elif p[2] == '*' : p[0] = lambda: p[1]() *  p[3]()
         elif p[2] == '/' : p[0] = lambda: p[1]() /  p[3]()
 
-    # grouping mathemetical expressions
-    def p_expression_group(self, p):
-        'expression : LPAREN expression RPAREN'
-        p[0] = p[2]
-
+    # a numeric literal
     def p_expression_number(self, p):
         'expression : NUMBER'
         p[0] = Value(p[1])
 
+    # use the value of an existing field
     def p_expression_name(self, p):
         'expression : ID'
         p[0] = self.current_scope[p[1]]
@@ -162,13 +162,14 @@ class BitParse(object):
     # Create a new scope for local variables
     def p_new_scope(self, p):
         'new_scope :'
-        # print '== old scope ====='
-        # for k, v in self.current_scope.iteritems():
-        #     print k, v
-        # print 'making a new scope ======='
+        self.scopestack.append(self.current_scope)
         self.current_scope = { }
 
-    # empty ptoduction, for clarity
+    def p_end_scope(self, p):
+        'end_scope :'
+        self.current_scope = self.scopestack.pop()
+
+    # empty production, for clarity
     def p_empty(self, p):
         'empty :'
         pass
