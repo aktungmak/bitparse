@@ -39,7 +39,11 @@ class IfBlock(object):
         self.fields = fields
     def parse(self, bitstream):
         if self.condition():
-            return self.fields
+            # process all the fields
+            parsed = [f.parse(bitstream) for f in self.fields]
+
+            #flatten and return
+            return [item for sublist in parsed for item in sublist]
         else:
             return []
     def __str__(self):
@@ -50,7 +54,10 @@ class ForLoop(object):
         self.count = count
         self.fields = fields
     def parse(self, bitstream):
-        print "forloop count is %s!" % self.count()
-        return self.fields * self.count()
+        # process all the fields
+        parsed = [f.parse(bitstream) for f in (self.fields * self.count())]
+
+        #flatten and return
+        return [item for sublist in parsed for item in sublist]
     def __str__(self):
         return "a forloop %d times with %d fields" % (self.count(), len(self.fields))
