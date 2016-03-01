@@ -5,8 +5,7 @@ class Structure(object):
         self.name = name
         self.fields = fields
     def parse(self, bitstream):
-        print "im going to parse the %s structure!" % self.name
-        parsed = [field.parse(bitstream) for field in self.fields]
+        parsed = [f.parse(bitstream) for f in self.fields]
         return (self.name, [item for sublist in parsed for item in sublist])
     def __str__(self):
         return "a %s structure with %d fields" % (self.name, len(self.fields))
@@ -18,7 +17,6 @@ class Field(object):
         self.name = name
         self.value = value
     def parse(self, bitstream):
-        print "im going to parse the %s field!" % self.name
         # lul everything is interpreted as a uint... so the type does nothing (yet)
         self.value = bitstream.read(int(self.width())).uint
         return [(self.name, self.value)]
@@ -41,8 +39,6 @@ class IfBlock(object):
         if self.condition():
             # process all the fields
             parsed = [f.parse(bitstream) for f in self.fields]
-
-            #flatten and return
             return [item for sublist in parsed for item in sublist]
         else:
             return []
@@ -56,8 +52,15 @@ class ForLoop(object):
     def parse(self, bitstream):
         # process all the fields
         parsed = [f.parse(bitstream) for f in (self.fields * self.count())]
-
-        #flatten and return
         return [item for sublist in parsed for item in sublist]
     def __str__(self):
         return "a forloop %d times with %d fields" % (self.count(), len(self.fields))
+
+class StructCall(object):
+    def __init__(self, struct):
+        self.struct = struct
+    def parse(self, bitstream):
+        # process all the fields
+        return [self.struct.parse(bitstream)]
+    def __str__(self):
+        return "a structcall of %s" % (self.struct.name)

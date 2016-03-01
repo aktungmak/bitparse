@@ -1,6 +1,6 @@
 import ply.yacc as yacc
 import ply.lex as lex
-from astobjects import Field, ForLoop, IfBlock, Structure, Value
+from astobjects import Field, ForLoop, IfBlock, StructCall, Structure, Value
 from bitlex import BitLex
 
 class BitSyntaxException(Exception):
@@ -13,7 +13,6 @@ class BitParse(object):
         ('left','PLUS','MINUS','TIMES','DIVIDE','EQUAL','UNEQUAL'),
     ]
 
-
     def __init__(self, **kw):
         self.debug = kw.get('debug', 0)
         self.scopestack = []
@@ -24,15 +23,15 @@ class BitParse(object):
         except:
             modname = "parser"+"_"+self.__class__.__name__
         # self.debugfile = modname + ".dbg"
-        self.tabmodule = modname + "_" + "parsetab"
+        # self.tabmodule = modname + "_" + "parsetab"
 
         # Build the lexer and parser
         bl = BitLex()
         bl.build()
-        yacc.yacc(module=self,
-                  debug=self.debug,
+        yacc.yacc(module=self)
+                  # debug=self.debug,
                   # debugfile=self.debugfile,
-                  tabmodule=self.tabmodule)
+                  # tabmodule=self.tabmodule)
 
     def parse(self, string):
         return yacc.parse(string)
@@ -41,13 +40,13 @@ class BitParse(object):
     def p_struct_list(self, p):
         '''
         struct_list : empty
-                    | struct struct_list
+                    | struct_list struct
         '''
         if p[1] is None:
             p[0] = []
         else:
             # self.structures[p[2].name] = p[2]
-            p[0] = [p[1]]+p[2]
+            p[0] = p[1]+[p[2]]
 
     def p_struct_name(self, p):
         'struct_name : ID'
@@ -64,7 +63,7 @@ class BitParse(object):
     def p_fields(self, p):
         '''
         fields : empty
-               | field fields
+               | fields field
         '''
         if p[1] is None:
             p[0] = []
@@ -102,7 +101,7 @@ class BitParse(object):
     def p_struct_call(self, p):
         'struct_call : struct_name LPAREN RPAREN'
         try:
-            p[0] = [self.structures[p[1]]]
+            p[0] = [StructCall(self.structures[p[1]])]
         except KeyError as e:
             raise BitSyntaxException('line %d: undeclared structure %s' % (p.lineno(1), p[1]))
 
